@@ -3,63 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#12131c" />
+  <meta name="theme-color" content="#ffffff" />
   <title>냥살핌 · 길고양이 돌봄 통합 관리 플랫폼</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <!-- 야간 배경: 길고양이가 다니는 밤거리 -->
-  <div class="sky" aria-hidden="true">
-    <span class="moon"></span>
-    <span class="star" style="--x:12%;--y:18%;--d:0s"></span>
-    <span class="star" style="--x:28%;--y:9%;--d:1.1s"></span>
-    <span class="star" style="--x:67%;--y:14%;--d:2.2s"></span>
-    <span class="star" style="--x:82%;--y:22%;--d:0.6s"></span>
-    <span class="star" style="--x:45%;--y:6%;--d:1.7s"></span>
-  </div>
-
-  <!-- 앱 셸 (모바일 프레임) -->
   <div class="phone">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark">🐾</span>
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" class="calico" aria-hidden="true">
+          <path d="M30 38 L22 14 L46 30 Z" fill="#3a3a3a"/><path d="M90 38 L98 14 L74 30 Z" fill="#e8a23c"/>
+          <path d="M31 35 L26 20 L42 31 Z" fill="#f2a7a0"/><path d="M89 35 L94 20 L78 31 Z" fill="#f2a7a0"/>
+          <ellipse cx="60" cy="62" rx="38" ry="34" fill="#fff" stroke="#3a3a3a" stroke-width="3.5"/>
+          <path d="M22 56 Q22 34 44 32 Q34 50 38 70 Q30 72 24 66 Z" fill="#3a3a3a"/>
+          <path d="M98 56 Q98 34 76 32 Q86 50 82 70 Q90 72 96 66 Z" fill="#e8a23c"/>
+          <circle cx="46" cy="60" r="5.5" fill="#3a3a3a"/><circle cx="74" cy="60" r="5.5" fill="#3a3a3a"/>
+          <circle cx="48" cy="58" r="1.8" fill="#fff"/><circle cx="76" cy="58" r="1.8" fill="#fff"/>
+          <circle cx="38" cy="72" r="5" fill="#f2a7a0" opacity=".7"/><circle cx="82" cy="72" r="5" fill="#f2a7a0" opacity=".7"/>
+          <path d="M57 68 L63 68 L60 72 Z" fill="#f2a7a0"/>
+          <path d="M60 72 Q56 77 52 74 M60 72 Q64 77 68 74" stroke="#3a3a3a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
         <div class="brand-text">
           <strong>냥살핌</strong>
-          <small>우리 동네 길고양이 돌봄</small>
+          <small>동네 길고양이 통합 돌봄 플랫폼</small>
         </div>
       </div>
       <button class="ghost-btn" id="aboutBtn" title="서비스 소개">ⓘ</button>
     </header>
 
-    <main id="view" class="view"><!-- 탭 콘텐츠 --></main>
+    <main id="view" class="view"></main>
 
-    <!-- 하단 탭바 -->
     <nav class="tabbar" id="tabbar">
       <button data-tab="map" class="tab active">
-        <span class="ic">🗺️</span><span>지도</span>
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg></span><span>지도</span>
       </button>
       <button data-tab="feed" class="tab">
-        <span class="ic">🍚</span><span>급식</span>
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 11h16M4 11a8 8 0 0 1 16 0M6 11v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7"/></svg></span><span>급식</span>
       </button>
       <button data-tab="register" class="tab tab-cta">
         <span class="plus">＋</span>
       </button>
       <button data-tab="care" class="tab">
-        <span class="ic">🩺</span><span>돌봄</span>
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.5-7 10-7 10Z"/></svg></span><span>돌봄</span>
       </button>
       <button data-tab="board" class="tab">
-        <span class="ic">📊</span><span>현황</span>
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span>현황</span>
       </button>
     </nav>
   </div>
 
-  <!-- 토스트 -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- 모달 -->
   <div id="modal" class="modal-wrap" hidden>
     <div class="modal-backdrop" data-close></div>
     <div class="modal" role="dialog" aria-modal="true"><div id="modalBody"></div></div>

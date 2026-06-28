@@ -1,0 +1,28 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" class="calico">
+  <!-- 삼색이(칼리코) 고양이 머리 마스코트 -->
+  <!-- 귀 -->
+  <path d="M30 38 L22 14 L46 30 Z" fill="#3a3a3a"/>
+  <path d="M90 38 L98 14 L74 30 Z" fill="#e8a23c"/>
+  <path d="M31 35 L26 20 L42 31 Z" fill="#f2a7a0"/>
+  <path d="M89 35 L94 20 L78 31 Z" fill="#f2a7a0"/>
+  <!-- 얼굴 베이스 (흰색) -->
+  <ellipse cx="60" cy="62" rx="38" ry="34" fill="#ffffff" stroke="#3a3a3a" stroke-width="3.5"/>
+  <!-- 왼쪽 검정 패치 -->
+  <path d="M22 56 Q22 34 44 32 Q34 50 38 70 Q30 72 24 66 Z" fill="#3a3a3a"/>
+  <!-- 오른쪽 치즈 패치 -->
+  <path d="M98 56 Q98 34 76 32 Q86 50 82 70 Q90 72 96 66 Z" fill="#e8a23c"/>
+  <!-- 눈 -->
+  <circle cx="46" cy="60" r="5.5" fill="#3a3a3a"/>
+  <circle cx="74" cy="60" r="5.5" fill="#3a3a3a"/>
+  <circle cx="48" cy="58" r="1.8" fill="#fff"/>
+  <circle cx="76" cy="58" r="1.8" fill="#fff"/>
+  <!-- 볼터치 -->
+  <circle cx="38" cy="72" r="5" fill="#f2a7a0" opacity=".7"/>
+  <circle cx="82" cy="72" r="5" fill="#f2a7a0" opacity=".7"/>
+  <!-- 코 -->
+  <path d="M57 68 L63 68 L60 72 Z" fill="#f2a7a0"/>
+  <!-- 입 -->
+  <path d="M60 72 Q56 77 52 74 M60 72 Q64 77 68 74" stroke="#3a3a3a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- 수염 -->
+  <path d="M30 64 L44 66 M30 70 L44 70 M90 64 L76 66 M90 70 L76 70" stroke="#cfcfcf" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
