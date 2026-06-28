@@ -1,0 +1,16 @@
+# 의존성 (배포 시 npm install로 다시 설치됨)
+node_modules/
+
+# 로컬 SQLite 데이터베이스 (배포 서버와 분리)
+server/data/
+
+# 로그·환경 변수
+npm-debug.log*
+.env
+.env.local
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

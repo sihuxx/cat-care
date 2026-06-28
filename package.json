@@ -1,0 +1,21 @@
+{
+  "name": "nyangsalpim",
+  "version": "1.0.0",
+  "description": "냥살핌 — 길고양이 돌봄 통합 관리 플랫폼 (제23회 Be the CEOs 창업대회)",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "keywords": ["길고양이", "동물복지", "TNR", "냥살핌", "Be-the-CEOs"],
+  "author": "박시후 (서울디지텍고등학교 인공지능소프트웨어과)",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.19.2"
+  }
+}
