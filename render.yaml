@@ -1,9 +1,9 @@
-# Render 배포 설정 (무료 플랜 — 디스크 없음)
 services:
   - type: web
     name: nyangsalpim
     runtime: node
     plan: free
+    nodeVersion: 22.x
     buildCommand: npm install
     startCommand: npm start
     envVars:
