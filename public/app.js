@@ -31,6 +31,55 @@ function calico(size = 40) {
   </svg>`;
 }
 
+// ── 코무늬 perceptual hash (pHash) ──
+// 사진을 8x8 흑백으로 줄여, 각 픽셀이 평균보다 밝으면 1 / 어두우면 0.
+// → 64비트 지문(16자리 hex). 비슷한 사진은 비슷한 지문이 나온다.
+async function imageToHash(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = url;
+    });
+    const N = 8;
+    const cv = document.createElement('canvas');
+    cv.width = N; cv.height = N;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, N, N);
+    const { data } = ctx.getImageData(0, 0, N, N);
+    // 흑백 밝기값
+    const gray = [];
+    for (let i = 0; i < data.length; i += 4) {
+      gray.push(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+    }
+    const avg = gray.reduce((a, b) => a + b, 0) / gray.length;
+    // 64비트 → 16진수 16자리
+    let hex = '';
+    for (let i = 0; i < 64; i += 4) {
+      let nib = 0;
+      for (let j = 0; j < 4; j++) nib = (nib << 1) | (gray[i + j] >= avg ? 1 : 0);
+      hex += nib.toString(16);
+    }
+    return hex;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+// 사진 미리보기용 축소 dataURL (DB 저장용, 가볍게)
+async function imageToThumb(file, size = 96) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+    const ctx = cv.getContext('2d');
+    const s = Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+    return cv.toDataURL('image/jpeg', 0.7);
+  } finally { URL.revokeObjectURL(url); }
+}
+
 const toast = (msg) => {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
@@ -129,7 +178,7 @@ function catRow(c) {
   if (c.careGap) badges.push(`<span class="badge b-gap">돌봄공백</span>`);
   else if (c.health === 'watch') badges.push(`<span class="badge b-watch">관찰중</span>`);
   return `<div class="cat-row" data-cat="${c.id}">
-    <div class="avatar">${calico(40)}</div>
+    <div class="avatar">${c.photo ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px">` : calico(40)}</div>
     <div class="cat-meta">
       <div class="nm">${c.name} ${badges.join('')}</div>
       <div class="sub">마지막 급식 ${ago(c.lastFeedingAt)} · ${c.note || '메모 없음'}</div>
@@ -146,7 +195,7 @@ async function showCat(id) {
     : `<p class="muted">아직 급식 기록이 없어요.</p>`;
   openModal(`
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:6px">
-      <div class="avatar" style="width:60px;height:60px">${calico(50)}</div>
+      <div class="avatar" style="width:60px;height:60px">${c.photo ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px">` : calico(50)}</div>
       <div><div style="font-family:var(--round);font-size:22px">${c.name}</div>
         <div class="muted">코무늬 ID · ${c.nosePrintId}</div></div>
     </div>
@@ -221,9 +270,10 @@ async function renderFeed() {
 //  TAB: 등록 (+ AI 코무늬)
 // ═════════════════════════════════════════════
 const COLORS = ['#E8A23C', '#C77B52', '#8C8C99', '#3A3A3A', '#EDEAE2', '#E57373'];
-let regState = { color: COLORS[0], lat: 37.5388, lng: 126.9905 };
+let regState = { color: COLORS[0], lat: 37.5388, lng: 126.9905, hash: null, thumb: null };
 
 function renderRegister() {
+  regState.hash = null; regState.thumb = null;
   view.innerHTML = `
     <div class="eyebrow">새 길고양이 등록</div>
     <h1 class="h-title">새 친구를 등록해요</h1>
@@ -232,8 +282,11 @@ function renderRegister() {
     <div class="ai-box" id="aiBox">
       <span class="ai-nose">👃</span>
       <div style="font-weight:700;margin-bottom:4px;color:var(--green-deep)">AI 코무늬 인식</div>
-      <p class="muted" style="margin:0 0 12px">고양이 코 사진으로 개체를 식별해요. (사람의 지문처럼!)</p>
-      <button class="btn btn-primary" id="aiBtn">📷 코무늬 분석하기</button>
+      <p class="muted" style="margin:0 0 12px">고양이 코가 잘 보이는 사진을 올리면, 등록된 개체와 비교해 같은 고양이인지 찾아요.</p>
+      <input type="file" id="aiFile" accept="image/*" hidden />
+      <img id="aiPreview" alt="" style="display:none;width:96px;height:96px;object-fit:cover;border-radius:14px;margin:0 auto 12px;border:2px solid var(--green)" />
+      <button class="btn btn-ghost" id="aiPick" style="margin-bottom:8px">📷 코 사진 선택</button>
+      <button class="btn btn-primary" id="aiBtn" disabled style="opacity:.5">코무늬 분석하기</button>
       <div id="aiResult"></div>
     </div>
 
@@ -274,6 +327,23 @@ function renderRegister() {
     $('#regCoord').textContent = `📍 위도 ${regState.lat.toFixed(4)}, 경도 ${regState.lng.toFixed(4)}`;
   });
 
+  // 사진 선택 → 미리보기 + pHash 계산
+  $('#aiPick').addEventListener('click', () => $('#aiFile').click());
+  $('#aiFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const [hash, thumb] = await Promise.all([imageToHash(file), imageToThumb(file)]);
+      regState.hash = hash; regState.thumb = thumb;
+      const pv = $('#aiPreview'); pv.src = thumb; pv.style.display = 'block';
+      const btn = $('#aiBtn'); btn.disabled = false; btn.style.opacity = '1';
+      $('#aiResult').innerHTML = '';
+      toast('사진을 불러왔어요. 분석하기를 눌러보세요.');
+    } catch (err) {
+      toast('사진을 처리하지 못했어요. 다른 사진을 시도해 주세요.');
+    }
+  });
+
   $('#aiBtn').addEventListener('click', runNoseMatch);
   $('#rSubmit').addEventListener('click', async () => {
     const name = $('#rName').value.trim();
@@ -281,7 +351,8 @@ function renderRegister() {
     try {
       await api('/cats', { method: 'POST', body: JSON.stringify({
         name, lat: regState.lat, lng: regState.lng, colorTag: regState.color,
-        gender: $('#rGender').value, note: $('#rNote').value.trim() }) });
+        gender: $('#rGender').value, note: $('#rNote').value.trim(),
+        noseHash: regState.hash, photo: regState.thumb }) });
       toast(`🐾 '${name}' 등록 완료! 지도에 추가됐어요.`);
       switchTab('map');
     } catch (e) { toast(e.message); }
@@ -289,11 +360,12 @@ function renderRegister() {
 }
 
 async function runNoseMatch() {
+  if (!regState.hash) return toast('먼저 코 사진을 선택해 주세요.');
   const box = $('#aiBox'), result = $('#aiResult'), btn = $('#aiBtn');
   box.classList.add('scanning'); btn.disabled = true; btn.textContent = '분석 중…';
   result.innerHTML = `<div class="ai-result"><span class="muted">코무늬 패턴을 추출하고 등록된 개체와 비교하고 있어요…</span></div>`;
   try {
-    const r = await api('/ai/nose-match', { method: 'POST', body: JSON.stringify({ imageHint: Date.now() + Math.random() }) });
+    const r = await api('/ai/nose-match', { method: 'POST', body: JSON.stringify({ hash: regState.hash }) });
     const pct = Math.round(r.confidence * 100);
     if (r.result === 'matched') {
       result.innerHTML = `<div class="ai-result matched"><strong>🎯 일치하는 개체 발견</strong><br>${r.message}
@@ -302,12 +374,12 @@ async function runNoseMatch() {
     } else {
       result.innerHTML = `<div class="ai-result new"><strong>✨ 신규 개체</strong><br>${r.message}
         <div class="confidence-bar"><i style="width:${pct}%"></i></div>
-        <div class="muted" style="margin-top:6px">신규 가능성 ${pct}% · 코무늬 ID ${r.nosePrintId}</div></div>`;
+        <div class="muted" style="margin-top:6px">${r.distance != null ? `가장 가까운 개체와 ${r.distance}비트 차이 · ` : ''}코무늬 ID ${r.nosePrintId}</div></div>`;
     }
   } catch (e) {
     result.innerHTML = `<div class="ai-result" style="border-color:var(--rose)">${e.message}</div>`;
   } finally {
-    box.classList.remove('scanning'); btn.disabled = false; btn.textContent = '📷 다시 분석하기';
+    box.classList.remove('scanning'); btn.disabled = false; btn.textContent = '코무늬 다시 분석하기';
   }
 }
 

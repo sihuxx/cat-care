@@ -30,6 +30,18 @@ const lastFeedingStmt = db.prepare(
   `SELECT * FROM feedings WHERE catId=? ORDER BY at DESC LIMIT 1`);
 const lastFeeding = (catId) => lastFeedingStmt.get(catId) || null;
 
+// ── 코무늬 해시(pHash) 비교용: 두 16진수 해시의 해밍 거리 ──
+// 클라이언트가 보낸 64비트 perceptual hash(16자리 hex)를 비트 단위로 비교한다.
+function hammingHex(a, b) {
+  if (!a || !b || a.length !== b.length) return Infinity;
+  let dist = 0;
+  for (let i = 0; i < a.length; i++) {
+    let x = parseInt(a[i], 16) ^ parseInt(b[i], 16); // 4비트씩 XOR
+    while (x) { dist += x & 1; x >>= 1; }
+  }
+  return dist;
+}
+
 // ═════════════════════════════════════════════════════════════
 //  API: 고양이 (Cats)
 // ═════════════════════════════════════════════════════════════
@@ -58,26 +70,27 @@ app.get('/api/cats/:id', (req, res) => {
 });
 
 app.post('/api/cats', (req, res) => {
-  const { name, lat, lng, colorTag, gender, note, photo } = req.body || {};
+  const { name, lat, lng, colorTag, gender, note, photo, noseHash } = req.body || {};
   if (!name || lat == null || lng == null) {
     return res.status(400).json({ error: '이름과 위치(지도 탭)는 필수입니다.' });
   }
   const cat = {
     id: uid(),
     name: String(name).slice(0, 30),
-    colorTag: colorTag || '#E8A93C',
+    colorTag: colorTag || '#E8A23C',
     gender: gender || 'U',
     neutered: 0,
     lat: Number(lat), lng: Number(lng),
     note: note ? String(note).slice(0, 200) : '',
     nosePrintId: 'NP-' + crypto.randomBytes(4).toString('hex').toUpperCase(),
+    noseHash: (typeof noseHash === 'string' && /^[0-9a-f]{16}$/i.test(noseHash)) ? noseHash.toLowerCase() : null,
     health: 'unknown',
     photo: photo || null,
     registeredAt: now(),
   };
   db.prepare(`INSERT INTO cats
-    (id,name,colorTag,gender,neutered,lat,lng,note,nosePrintId,health,photo,registeredAt)
-    VALUES (@id,@name,@colorTag,@gender,@neutered,@lat,@lng,@note,@nosePrintId,@health,@photo,@registeredAt)`
+    (id,name,colorTag,gender,neutered,lat,lng,note,nosePrintId,noseHash,health,photo,registeredAt)
+    VALUES (@id,@name,@colorTag,@gender,@neutered,@lat,@lng,@note,@nosePrintId,@noseHash,@health,@photo,@registeredAt)`
   ).run(cat);
   res.status(201).json({ ...cat, neutered: false });
 });
@@ -133,34 +146,58 @@ app.get('/api/feedings', (_req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════
-//  API: AI 코무늬 인식 (모의 엔진)
+//  API: AI 코무늬 인식 (perceptual hash 기반 이미지 유사도 비교)
+//  클라이언트가 사진을 32x32 흑백으로 줄여 만든 64비트 pHash(16자리 hex)를 보내면,
+//  등록된 고양이들의 noseHash와 해밍 거리로 비교해 가장 비슷한 개체를 찾는다.
+//  ── 한계: 실제 '코무늬' 분석이 아니라 사진 전체의 패턴 유사도 비교(프로토타입).
 // ═════════════════════════════════════════════════════════════
 app.post('/api/ai/nose-match', (req, res) => {
-  const { imageHint } = req.body || {};
-  const h = crypto.createHash('sha256').update((imageHint || '') + Date.now()).digest();
-  const roll = h[0] / 255;
-  const cats = db.prepare(`SELECT id,name,nosePrintId,colorTag FROM cats`).all();
+  const { hash } = req.body || {};
+
+  // 해시가 없으면(사진 미첨부) 비교 불가 → 신규로 처리
+  if (typeof hash !== 'string' || !/^[0-9a-f]{16}$/i.test(hash)) {
+    return res.status(400).json({ error: '사진에서 코무늬 패턴을 추출하지 못했어요. 다시 시도해 주세요.' });
+  }
+  const q = hash.toLowerCase();
+
+  // noseHash가 등록된 고양이들과 비교
+  const cats = db.prepare(
+    `SELECT id,name,nosePrintId,colorTag,noseHash FROM cats WHERE noseHash IS NOT NULL`).all();
+
+  let best = null;
+  for (const c of cats) {
+    const d = hammingHex(q, c.noseHash);
+    if (!best || d < best.dist) best = { cat: c, dist: d };
+  }
+
+  // 64비트 중 다른 비트 수(distance)를 유사도로 환산 (0=완전동일, 64=정반대)
+  // 임계값: 12비트 이하 차이면 '같은 개체'로 판단 (시연 기준값)
+  const THRESHOLD = 12;
 
   setTimeout(() => {
-    if (roll < 0.6 && cats.length) {
-      const cat = cats[h[1] % cats.length];
-      const confidence = 0.82 + (h[2] / 255) * 0.16;
+    if (best && best.dist <= THRESHOLD) {
+      const confidence = Math.max(0, 1 - best.dist / 64); // 0~1
       res.json({
         result: 'matched',
         confidence: Math.round(confidence * 1000) / 1000,
-        cat,
-        message: `이미 등록된 '${cat.name}'(으)로 추정됩니다. 중복 등록을 방지했어요.`,
+        distance: best.dist,
+        cat: { id: best.cat.id, name: best.cat.name, nosePrintId: best.cat.nosePrintId, colorTag: best.cat.colorTag },
+        message: `이미 등록된 '${best.cat.name}'(으)로 추정됩니다. 중복 등록을 방지했어요.`,
       });
     } else {
-      const confidence = 0.55 + (h[3] / 255) * 0.2;
+      // 가장 비슷한 게 있어도 임계값을 넘으면 신규로 판단
+      const confidence = best ? Math.max(0, 1 - best.dist / 64) : 0.5;
       res.json({
         result: 'new',
         confidence: Math.round(confidence * 1000) / 1000,
+        distance: best ? best.dist : null,
         nosePrintId: 'NP-' + crypto.randomBytes(4).toString('hex').toUpperCase(),
-        message: '신규 개체로 보입니다. 새로 등록할 수 있어요.',
+        message: cats.length
+          ? '등록된 개체 중 일치하는 고양이가 없어요. 새로 등록할 수 있어요.'
+          : '아직 비교할 개체가 없어요. 첫 등록이라면 그대로 등록하면 됩니다.',
       });
     }
-  }, 900);
+  }, 700);
 });
 
 // ═════════════════════════════════════════════════════════════

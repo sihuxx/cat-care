@@ -11,12 +11,11 @@ import crypto from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// 저장 폴더 결정 (배포 시 DATA_DIR=/var/data 같은 영구 디스크 경로)
 const DATA_DIR = process.env.DATA_DIR || join(__dirname, 'data');
 mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(join(DATA_DIR, 'nyangsalpim.db'));
-db.pragma('journal_mode = WAL');   // 동시성·안정성 향상
+db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 // ── 스키마 생성 ──
@@ -31,6 +30,7 @@ db.exec(`
     lng           REAL,
     note          TEXT,
     nosePrintId   TEXT,
+    noseHash      TEXT,
     health        TEXT DEFAULT 'unknown',
     photo         TEXT,
     registeredAt  TEXT
@@ -72,10 +72,16 @@ db.exec(`
   );
 `);
 
+// ── 마이그레이션: 예전 DB에 noseHash 컬럼이 없으면 추가 ──
+const cols = db.prepare(`PRAGMA table_info(cats)`).all().map(c => c.name);
+if (!cols.includes('noseHash')) {
+  db.exec(`ALTER TABLE cats ADD COLUMN noseHash TEXT`);
+}
+
 const uid = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
 
-// ── 최초 1회만 시드 데이터 삽입 (이미 시드했으면 건너뜀) ──
+// ── 최초 1회만 시드 데이터 삽입 ──
 function seedOnce() {
   const seeded = db.prepare(`SELECT value FROM meta WHERE key='seeded'`).get();
   if (seeded) return;
